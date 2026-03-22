@@ -1,7 +1,15 @@
 ---
 name: problem-solving
 version: 1.0.0
-description: "Structured problem diagnosis and resolution methodology. Use when: (1) a problem's cause is unclear and requires investigation, (2) a previous fix attempt failed, (3) the issue involves multiple components interacting, (4) modifications carry risk or side effects, (5) user explicitly asks to analyze before fixing. NOT for: obvious one-liner fixes, clear error messages with known solutions, or when user says 'just fix it' for simple issues."
+description: >
+  结构化问题诊断与解决方法论。
+  Use when: (1) 问题原因不明需要调查/"分析一下这个问题"/"排查一下",
+  (2) 之前的修复尝试失败了,
+  (3) 问题涉及多个组件交互/"为什么会这样"/"调查一下原因",
+  (4) 修改有风险或副作用/"诊断一下",
+  (5) 用户明确要求先分析再修复。
+  NOT for: 明显的一行修复、错误信息清晰且有已知方案的问题、
+  用户说"直接修"的简单问题。
 ---
 
 # Structured Problem Solving
