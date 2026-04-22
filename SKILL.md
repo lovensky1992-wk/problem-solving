@@ -178,6 +178,15 @@ Show evidence, don't say "应该好了".
 
 Write lessons to `.learnings/` if reusable.
 
+## 诊断超时与死胡同处理
+
+| 信号 | 动作 |
+|------|------|
+| 同一假设连续 3 次验证无结论 | 停止，换假设或换诊断维度 |
+| 累计诊断 >15 分钟无进展 | 暂停，向用户汇报已排除项 + 当前卡点，询问是否有额外线索 |
+| 累计尝试 >5 个假设均被否定 | 考虑问题是否需要消解（回 Step 0）或需要更多上下文 |
+| 修复后问题复现 | 不叠加补丁，回退到修复前状态，重新走 Step 1 |
+
 ## Anti-patterns
 
 | Pattern | What it looks like | Fix |
