@@ -1,13 +1,15 @@
 ---
 name: problem-solving
-version: 1.0.0
+version: 1.1.0
 description: >
   结构化问题诊断与解决方法论。
   Use when: (1) 问题原因不明需要调查/"分析一下这个问题"/"排查一下",
   (2) 之前的修复尝试失败了,
   (3) 问题涉及多个组件交互/"为什么会这样"/"调查一下原因",
   (4) 修改有风险或副作用/"诊断一下",
-  (5) 用户明确要求先分析再修复。
+  (5) 用户明确要求先分析再修复,
+  (6) 用户报告项目代码 bug/截图+描述异常行为/"这个功能坏了"/"刷新后不对了",
+  (7) 涉及第三方框架/库的非显而易见行为。
   NOT for: 明显的一行修复、错误信息清晰且有已知方案的问题、
   用户说"直接修"的简单问题。
 ---
@@ -26,6 +28,8 @@ description: >
 - 2+ components involved
 - You already tried a fix that didn't work
 - Wrong fix could cause data loss, privacy leak, or downtime
+- **Code bug**: User reports a project bug (screenshot, error, behavior description)
+- **Framework/library**: The issue involves third-party code you haven't fully studied
 
 ## The Process
 
@@ -219,3 +223,89 @@ Write lessons to `.learnings/` if reusable.
 | 问题根因值得记录（同类问题可能再犯） | 「这个教训值得记下来，写到 .learnings/ 防止再犯。」 |
 | 问题在消解层被消解（问题本身不成立） | 「问题已经消解了。如果背后有更大的决策要做，可以拉出来单独讨论。」 |
 | 诊断过程发现系统架构层面的隐患 | 「这次修好了，但架构上还有隐患。要不要排个时间做一次 healthcheck？」 |
+
+---
+
+## Code Debugging Protocol
+
+> 代码 bug 诊断的专用流程。当主流程 Step 1 确认问题属于代码 bug 时，进入本协议。
+> 借鉴 Debug2Fix (subagent 架构) + Tweag Agentic Coding Handbook (两阶段循环) + Claude Code Best Practices (Explore → Plan → Code)。
+
+### Phase 0: 环境准备
+
+修 bug 前先清理战场，防止环境污染干扰诊断。
+
+```
+- [ ] 确认可复现（本地跑通 → 触发 bug → 记录现象）
+- [ ] 清理状态（localStorage / DB / 缓存 / 多余进程）
+- [ ] 只保留一个 dev server（lsof -i :端口 检查）
+- [ ] Git checkpoint（commit 或 stash 当前状态）
+```
+
+### Phase 1: 理解系统（Explore，不改代码）
+
+🔴 **这是最容易跳过也最不应该跳过的步骤。**
+
+| 检查项 | 做什么 | 上限 |
+|--------|---------|------|
+| 第三方库/框架 API | 读文档，理解核心机制（哪些是 reactive，哪些只在 mount 时生效） | 15 分钟 |
+| 运行时 > 源码 | 用 console/debugger/日志观察实际行为，不能只看源码猜 | 必做 |
+| 原站/参考实现 | 如果有正常工作的版本，先去实测它的行为（JS 检查 state/网络请求） | 10 分钟 |
+| 数据流 | 画出：输入 → 经过哪些组件 → 到达 bug 现象 | 必做 |
+
+产出：一段文字说明“系统应该怎么工作”，在开始 Step 2 之前告诉老板。
+
+### Phase 2: 假设诊断（Diagnose，仍不改代码）
+
+```
+假设列表：
+1. [原因假设] → 验证方法：[...] → 结果：✅/❌
+2. [原因假设] → 验证方法：[...] → 结果：✅/❌
+3. ...
+```
+
+- 先加日志/断点观察，再修改代码
+- 每个假设必须有可验证的方法，不能“觉得”
+
+🔴 **熔断规则**：连续 3 次 patch 都“差一步” → 立即停手，回答这个问题：
+> “是不是架构不对？我在 patch 症状还是在修根因？”
+
+### Phase 3: 修复执行（Fix，单变量）
+
+- 一次只改一个文件/一个变量
+- 改前 git commit checkpoint（或记录原值）
+- 每次改完立即验证（不是放在最后一起验）
+- spawn coder agent 时注入：Phase 1 的系统理解 + Phase 2 的根因结论 + 项目 CLAUDE.md 的 Framework Gotchas
+
+### Phase 4: 清洁验证
+
+```
+- [ ] 硬刷新 / 清 cache 后复验
+- [ ] 回归：相关功能没坏
+- [ ] 用户/老板在干净环境确认
+- [ ] browser 自动化测试前必须清理状态（不叠加多轮测试的脏数据）
+```
+
+### Code Debugging Anti-patterns
+
+| 反模式 | 表现 | 正确做法 |
+|---------|------|----------|
+| 源码猜测 | 看 GitHub 源码就断言行为 | 用 console/debugger 观察运行时状态 |
+| 跳过理解 | 不知道框架 API 机制就开始改 | 花 15 分钟读文档理解核心概念 |
+| 多轮污染 | browser 测试不清理状态，结果交叉污染 | 每轮测试前清理 localStorage/DB/进程 |
+| 无限 patch | 连续 patch 症状而不抬头看架构 | 3 次“差一步”就停，问“是不是架构问题” |
+| 磎片化 | 跨多个 session 做同一个 bug | 一个 session 内完成诊断+修复，避免上下文损失 |
+
+### 项目 CLAUDE.md 调试模板
+
+每个代码项目的 CLAUDE.md 应包含以下章节，记录框架特有的“坑”，spawn coder agent 时自动注入：
+
+```markdown
+## Framework Gotchas
+<!-- 每次踩坑后追加，格式：行为 + 为什么危险 + 正确做法 -->
+- [Library] 行为描述 → 为什么危险 → 正确做法
+
+## Verified Behaviors
+<!-- 已通过运行时验证的行为，不用每次重新确认 -->
+- [Component] 行为 + 验证日期
+```
